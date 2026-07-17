@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Today's update</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="container">
+    <div class="card">
+      <h1 class="title">Today&#39;s update</h1>
+      <p class="subtitle">
+        Hoofdpunten zonder inspringing. Subpunten met minimaal twee spaties of een tab.
+      </p>
+
+      <textarea
+        id="update-textarea"
+        class="textarea"
+        rows="6"
+        spellcheck="false"
+        placeholder="Fixed authentication bug&#10;  Added logging&#10;  Added tests&#10;Updated dashboard&#10;  Faster loading&#10;  Fixed CSS"
+      ></textarea>
+
+      <div class="footer-row">
+        <span class="hint">Ctrl+Enter om te versturen</span>
+        <button id="send-button" class="send-button" type="button">
+          <span id="button-text">Send to Slack</span>
+          <span id="button-spinner" class="spinner hidden"></span>
+        </button>
+      </div>
+
+      <div id="message" class="message hidden" role="status"></div>
+    </div>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
