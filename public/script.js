@@ -1,4 +1,4 @@
-// Key waaronder de concept-tekst in localStorage wordt bewaard
+// Key under which the draft text is stored in localStorage
 const STORAGE_KEY = 'daily-update-draft';
 
 const textarea = document.getElementById('update-textarea');
@@ -8,8 +8,7 @@ const buttonSpinner = document.getElementById('button-spinner');
 const messageEl = document.getElementById('message');
 
 /**
- * Herstelt een eerder opgeslagen concept uit localStorage bij het openen
- * van de pagina.
+ * Restores a previously saved draft from localStorage when the page loads.
  */
 function restoreDraft() {
   const saved = localStorage.getItem(STORAGE_KEY);
@@ -20,7 +19,7 @@ function restoreDraft() {
 }
 
 /**
- * Laat de textarea automatisch meegroeien met de inhoud.
+ * Grows the textarea automatically to fit its content.
  */
 function autoResize() {
   textarea.style.height = 'auto';
@@ -28,14 +27,14 @@ function autoResize() {
 }
 
 /**
- * Slaat de huidige inhoud van de textarea op in localStorage.
+ * Saves the current textarea content to localStorage.
  */
 function saveDraft() {
   localStorage.setItem(STORAGE_KEY, textarea.value);
 }
 
 /**
- * Toont een success- of error-melding onder de knop.
+ * Shows a success or error message below the button.
  */
 function showMessage(text, type) {
   messageEl.textContent = text;
@@ -48,23 +47,23 @@ function hideMessage() {
 }
 
 /**
- * Schakelt de loading-state van de verstuur-knop aan/uit.
+ * Toggles the loading state of the send button.
  */
 function setLoading(isLoading) {
   sendButton.disabled = isLoading;
-  buttonText.textContent = isLoading ? 'Versturen...' : 'Send to Slack';
+  buttonText.textContent = isLoading ? 'Sending...' : 'Send to Slack';
   buttonSpinner.classList.toggle('hidden', !isLoading);
 }
 
 /**
- * Verstuurt de huidige tekst naar de backend, die deze parsed,
- * omzet naar Slack mrkdwn en post naar Slack.
+ * Sends the current text to the backend, which parses it, converts it
+ * to Slack Block Kit and posts it to Slack.
  */
 async function sendUpdate() {
   const text = textarea.value.trim();
 
   if (!text) {
-    showMessage('Voer eerst je werkzaamheden in.', 'error');
+    showMessage('Please enter your tasks first.', 'error');
     return;
   }
 
@@ -81,17 +80,17 @@ async function sendUpdate() {
     const data = await response.json();
 
     if (!response.ok || !data.ok) {
-      throw new Error(data.error || 'Er ging iets mis bij het versturen.');
+      throw new Error(data.error || 'Something went wrong while sending.');
     }
 
-    // Succesvol verstuurd: textarea en localStorage leegmaken
+    // Successfully sent: clear the textarea and localStorage
     textarea.value = '';
     localStorage.removeItem(STORAGE_KEY);
     autoResize();
-    showMessage("Update succesvol verstuurd naar Slack \u2705", 'success');
+    showMessage('Update sent to Slack successfully \u2705', 'success');
   } catch (error) {
-    // Bij een fout blijft de textarea behouden zodat er niets verloren gaat
-    showMessage(error.message || 'Er ging iets mis bij het versturen.', 'error');
+    // On error, keep the textarea content so nothing gets lost
+    showMessage(error.message || 'Something went wrong while sending.', 'error');
   } finally {
     setLoading(false);
   }
