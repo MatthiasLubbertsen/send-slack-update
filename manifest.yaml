@@ -1,0 +1,31 @@
+display_information:
+  name: Daily Update Bot
+  description: Post je dagelijkse update automatisch naar Slack
+  background_color: "#111111"
+
+features:
+  bot_user:
+    display_name: daily-update-bot
+    always_online: true
+
+oauth_config:
+  scopes:
+    bot:
+      # chat:write is de enige benodigde scope: de app plaatst uitsluitend
+      # berichten in het geconfigureerde kanaal via chat.postMessage.
+      # Geen users:read of usergroups:read nodig, omdat de usergroup ID
+      # via een environment variable wordt geconfigureerd en niet dynamisch
+      # wordt opgezocht.
+      - chat:write
+
+settings:
+  event_subscriptions:
+    # Geen bot events nodig: de app luistert niet naar Slack events,
+    # het gebruikt Socket Mode uitsluitend voor de verbinding/authenticatie
+    # en verstuurt berichten via de Web API.
+    bot_events: []
+  interactivity:
+    is_enabled: false
+  org_deploy_enabled: false
+  socket_mode_enabled: true
+  token_rotation_enabled: false
