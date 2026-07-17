@@ -79,16 +79,78 @@ function parseUpdateText(text) {
   return mainPoints;
 }
 
+// Vaste footer-tekst, getoond in een context block (kleiner, gedempt lettertype).
+// Zie https://docs.slack.dev/reference/block-kit/blocks/context-block/
+const FOOTER_TEXT =
+  "I'm OOO, so I won't be reading reactions until I'm back from vacation — but I'll catch up on all of them once I return! Join this usergroup with `/se group join @matthias-day` to reach the team while I'm away. See you all later!";
+
 /**
- * Zet de boomstructuur om naar Slack mrkdwn lijst-syntax.
- * Volgens de officiële Slack documentatie worden lijsten gemaakt met
- * regels die beginnen met "-", en geneste lijsten met exact twee
- * spaties vóór de "-". Er worden nooit unicode bullets gebruikt.
+ * Bouwt een enkel lijst-item (rich_text_section) voor gebruik binnen
+ * een rich_text_list element.
+ *
+ * @param {string} text
+ * @returns {object}
+ */
+function buildRichTextSection(text) {
+  return {
+    type: 'rich_text_section',
+    elements: [{ type: 'text', text }],
+  };
+}
+
+/**
+ * Zet de boomstructuur om naar Slack Block Kit "rich_text" elementen.
+ *
+ * Belangrijk: mrkdwn-tekst met "-" aan het begin van een regel rendert in
+ * de Slack API NIET als een echte lijst met inspringing, dit blijft
+ * letterlijke tekst (zie https://docs.slack.dev/messaging/formatting-message-text/#lists
+ * en https://stackoverflow.com/questions/68482844/how-do-i-post-a-bulleted-list-using-the-slack-api).
+ * Om een écht gerenderde bulletlijst te krijgen, moet je een "rich_text"
+ * block met "rich_text_list" elementen gebruiken.
+ *
+ * Nesting wordt bereikt door meerdere rich_text_list elementen achter
+ * elkaar te zetten: een lijst met indent 0 voor het hoofdpunt, direct
+ * gevolgd door een lijst met indent 1 voor de bijbehorende subpunten.
+ * Slack rendert opeenvolgende rich_text_list elementen als één
+ * doorlopende, correct geneste lijst.
+ *
+ * @param {Array<{ text: string, subpoints: string[] }>} mainPoints
+ * @returns {object[]} elements voor een "rich_text" block
+ */
+function buildRichTextListElements(mainPoints) {
+  const elements = [];
+
+  for (const point of mainPoints) {
+    elements.push({
+      type: 'rich_text_list',
+      style: 'bullet',
+      indent: 0,
+      elements: [buildRichTextSection(point.text)],
+    });
+
+    if (point.subpoints.length > 0) {
+      elements.push({
+        type: 'rich_text_list',
+        style: 'bullet',
+        indent: 1,
+        elements: point.subpoints.map(buildRichTextSection),
+      });
+    }
+  }
+
+  return elements;
+}
+
+/**
+ * Bouwt een platte-tekst fallback van de lijst, gebruikt als "text"
+ * top-level parameter (notificaties, screen readers, linkpreviews).
+ * Dit is puur een fallback: de daadwerkelijke lijst-opmaak komt uit de
+ * "blocks" (rich_text), niet uit deze string.
  *
  * @param {Array<{ text: string, subpoints: string[] }>} mainPoints
  * @returns {string}
  */
-function buildSlackList(mainPoints) {
+function buildFallbackList(mainPoints) {
   const lines = [];
 
   for (const point of mainPoints) {
@@ -103,10 +165,11 @@ function buildSlackList(mainPoints) {
 
 /**
  * Bouwt het volledige Slack bericht: header met usergroup mention,
- * de lijst met werkzaamheden, en de vaste footer tekst.
+ * de lijst met werkzaamheden als rich_text blocks, en een context block
+ * met de vaste footer tekst.
  *
  * @param {string} rawText - Ruwe input uit de textarea
- * @returns {string}
+ * @returns {{ text: string, blocks: object[] }}
  */
 function buildSlackMessage(rawText) {
   const mainPoints = parseUpdateText(rawText);
@@ -115,12 +178,27 @@ function buildSlackMessage(rawText) {
     throw new Error('Geen werkzaamheden gevonden om te versturen.');
   }
 
-  const list = buildSlackList(mainPoints);
   const header = `<!subteam^${SLACK_USERGROUP_ID}> today:`;
-  const footer =
-    "_I'm ooo, so I won't read y'alls reactions, but I will read them once my vacation is ended! - join this usergroup using '/se group join @matthias-day' - see y'all later!_";
 
-  return `${header}\n\n${list}\n\n${footer}`;
+  const blocks = [
+    {
+      type: 'section',
+      text: { type: 'mrkdwn', text: header },
+    },
+    {
+      type: 'rich_text',
+      elements: buildRichTextListElements(mainPoints),
+    },
+    {
+      type: 'context',
+      elements: [{ type: 'mrkdwn', text: FOOTER_TEXT }],
+    },
+  ];
+
+  // Platte-tekst fallback: één newline minder na de ping (geen lege regel).
+  const fallbackText = `${header}\n${buildFallbackList(mainPoints)}\n\n${FOOTER_TEXT}`;
+
+  return { text: fallbackText, blocks };
 }
 
 // --- Express app: serveert frontend + API ---
@@ -138,12 +216,12 @@ expressApp.post('/api/send', async (req, res) => {
         .json({ ok: false, error: 'Geen tekst ontvangen om te versturen.' });
     }
 
-    const message = buildSlackMessage(text);
+    const { text: fallbackText, blocks } = buildSlackMessage(text);
 
     await slackApp.client.chat.postMessage({
       channel: SLACK_CHANNEL_ID,
-      text: message,
-      mrkdwn: true,
+      text: fallbackText,
+      blocks,
       unfurl_links: false,
       unfurl_media: false,
     });
