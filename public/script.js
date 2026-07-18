@@ -87,7 +87,7 @@ async function sendUpdate() {
     textarea.value = '';
     localStorage.removeItem(STORAGE_KEY);
     autoResize();
-    showMessage('Update sent to Slack successfully \u2705', 'success');
+    showMessage('Update sent to Slack successfully', 'success');
   } catch (error) {
     // On error, keep the textarea content so nothing gets lost
     showMessage(error.message || 'Something went wrong while sending.', 'error');
