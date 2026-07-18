@@ -82,7 +82,7 @@ function parseUpdateText(text) {
 // Vaste footer-tekst, getoond in een context block (kleiner, gedempt lettertype).
 // Zie https://docs.slack.dev/reference/block-kit/blocks/context-block/
 const FOOTER_TEXT =
-  "I'm OOO, so I won't be reading reactions until I'm back from vacation — but I'll catch up on all of them once I return! Join this usergroup with `/se group join @matthias-day` to reach the team while I'm away. See you all later!";
+  "I'm ooo, so I likely won't be reading reactions until I'm back from vacation • but I'll catch up on all of them once I return! • join this usergroup with `/se group join S0AK8LYJ8FR`!";
 
 /**
  * Bouwt een enkel lijst-item (rich_text_section) voor gebruik binnen
