@@ -4,7 +4,6 @@ const express = require('express');
 const path = require('path');
 const { App } = require('@slack/bolt');
 
-const PORT = process.env.PORT || 3000;
 const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN;
 const SLACK_APP_TOKEN = process.env.SLACK_APP_TOKEN;
 const SLACK_CHANNEL_ID = process.env.SLACK_CHANNEL_ID;
@@ -82,7 +81,7 @@ function parseUpdateText(text) {
 // Vaste footer-tekst, getoond in een context block (kleiner, gedempt lettertype).
 // Zie https://docs.slack.dev/reference/block-kit/blocks/context-block/
 const FOOTER_TEXT =
-  "I'm ooo, so I likely won't be reading reactions until I'm back from vacation • but I'll catch up on all of them once I return! • join this usergroup with `/se group join S0AK8LYJ8FR`!";
+  "please talk in the thread below! • join this usergroup with `/se group join S0AK8LYJ8FR`!";
 
 /**
  * Bouwt een enkel lijst-item (rich_text_section) voor gebruik binnen
@@ -225,6 +224,11 @@ expressApp.post('/api/send', async (req, res) => {
       unfurl_links: false,
       unfurl_media: false,
     });
+	
+    await slackApp.client.chat.postMessage({
+      channel: SLACK_CHANNEL_ID,
+      text: ":thread: or don't thread",
+    });
 
     res.json({ ok: true });
   } catch (error) {
@@ -241,8 +245,8 @@ expressApp.post('/api/send', async (req, res) => {
     await slackApp.start();
     console.log('\u26a1\ufe0f Slack Bolt app draait in Socket Mode');
 
-    expressApp.listen(PORT, () => {
-      console.log(`\ud83d\ude80 Server draait op http://localhost:${PORT}`);
+    expressApp.listen(3000, () => {
+      console.log('\ud83d\ude80 Server draait op http://localhost:3000');
     });
   } catch (error) {
     console.error('\u274c Kon de app niet starten:', error);
