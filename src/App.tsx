@@ -14,6 +14,8 @@ import { Textarea } from "@/components/ui/textarea"
 
 const DRAFT_KEY = "daily-update-draft"
 const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform)
+// Don't pop the keyboard open on phones.
+const isDesktop = typeof window !== "undefined" && window.matchMedia("(min-width: 768px)").matches
 
 const PLACEHOLDER = `Fixed the login bug :bug:
   Added logging
@@ -86,17 +88,19 @@ export default function App() {
   }, [text, formatted, sending])
 
   return (
-    <main className="mx-auto grid min-h-svh w-full max-w-5xl items-start gap-6 p-4 py-10 md:grid-cols-2 md:p-8 md:py-16">
-      <Card>
+    // Phones: exactly one screen tall, editor on top and preview below, each
+    // scrolling on its own. md+: two columns.
+    <main className="mx-auto flex h-dvh w-full max-w-5xl flex-col gap-3 p-3 md:grid md:h-auto md:min-h-svh md:grid-cols-2 md:items-start md:gap-6 md:p-8 md:py-16">
+      <Card className="min-h-0 flex-[3] [--card-spacing:--spacing(3)] md:flex-none md:[--card-spacing:--spacing(4)]">
         <CardHeader>
-          <CardTitle className="text-xl">Today&apos;s update</CardTitle>
-          <CardDescription>
+          <CardTitle className="md:text-xl">Today&apos;s update</CardTitle>
+          <CardDescription className="hidden md:block">
             One task per line. Indent with two spaces or a tab for sub-points.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="flex min-h-0 flex-1 flex-col gap-3 md:gap-4">
           <Textarea
-            autoFocus
+            autoFocus={isDesktop}
             spellCheck={false}
             value={text}
             placeholder={PLACEHOLDER}
@@ -116,10 +120,11 @@ export default function App() {
                 requestAnimationFrame(() => el.setSelectionRange(start + 2, start + 2))
               }
             }}
-            className="min-h-64 font-mono text-sm leading-relaxed"
+            // text-base on phones stops iOS from zooming in on focus.
+            className="min-h-0 flex-1 resize-none font-mono text-base leading-relaxed field-sizing-fixed md:min-h-64 md:flex-none md:resize-y md:text-sm md:field-sizing-content"
           />
 
-          <div className="flex items-start gap-3 rounded-lg border p-3">
+          <div className="flex shrink-0 items-start gap-3 md:rounded-lg md:border md:p-3">
             <Checkbox
               id="formatted"
               checked={formatted}
@@ -128,7 +133,7 @@ export default function App() {
             />
             <div className="grid gap-1">
               <Label htmlFor="formatted">Daily update format</Label>
-              <p className="text-sm text-muted-foreground">
+              <p className="hidden text-sm text-muted-foreground md:block">
                 {formatted ? (
                   <>Pings @{config.usergroup} with &ldquo;today:&rdquo;, a bullet list and the thread footer.</>
                 ) : (
@@ -138,48 +143,45 @@ export default function App() {
             </div>
           </div>
 
-          <p className="text-xs leading-relaxed text-muted-foreground">
+          <p className="hidden text-xs leading-relaxed text-muted-foreground md:block">
             <code>*bold*</code> <code>_italic_</code> <code>~strike~</code> <code>`code`</code>{" "}
             <code>:emoji:</code> <code>[text](url)</code> and pasted links all work.
           </p>
         </CardContent>
-        <CardFooter className="justify-between gap-4">
-          <KbdGroup className="text-muted-foreground">
+        <CardFooter className="shrink-0 justify-between gap-4">
+          <KbdGroup className="hidden text-muted-foreground md:inline-flex">
             <Kbd>{isMac ? "⌘" : "Ctrl"}</Kbd>
             <Kbd>Enter</Kbd>
           </KbdGroup>
-          <Button onClick={send} disabled={sending || text.trim() === ""}>
+          <Button onClick={send} disabled={sending || text.trim() === ""} className="w-full md:w-auto">
             {sending ? <Loader2Icon className="animate-spin" /> : <SendIcon />}
             {sending ? "Sending…" : "Send to Slack"}
           </Button>
         </CardFooter>
       </Card>
 
-      <Card className="md:sticky md:top-16">
+      <Card className="min-h-0 flex-[2] [--card-spacing:--spacing(3)] md:sticky md:top-16 md:flex-none md:[--card-spacing:--spacing(4)]">
         <CardHeader>
           <div className="flex items-center justify-between gap-2">
             <CardTitle>Preview</CardTitle>
             <Badge variant="secondary">{formatted ? "Daily update" : "Plain text"}</Badge>
           </div>
           {config.channel && (
-            <CardDescription>
+            <CardDescription className="hidden md:block">
               Posting to #{config.channel}
             </CardDescription>
           )}
         </CardHeader>
         <Separator />
-        <CardContent>
+        <CardContent className="min-h-0 flex-1 space-y-3 overflow-y-auto">
           <SlackPreview text={text} formatted={formatted} names={config} />
-        </CardContent>
-        {formatted && text.trim() !== "" && (
-          <>
-            <Separator />
-            <CardContent className="text-sm text-muted-foreground">
+          {formatted && text.trim() !== "" && (
+            <p className="text-sm text-muted-foreground md:border-t md:pt-3">
               Followed by: 🧵 or don&apos;t thread
-            </CardContent>
-          </>
-        )}
-        <CardFooter className="text-xs text-muted-foreground">
+            </p>
+          )}
+        </CardContent>
+        <CardFooter className="hidden text-xs text-muted-foreground md:flex">
           <InfoIcon className="mr-1.5 size-3" />
           Approximation. Custom emoji show as their name.
         </CardFooter>
