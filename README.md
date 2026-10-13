@@ -54,11 +54,11 @@ Same `.env` as before, nothing to change. See [`.env.example`](.env.example).
 
 | Variable | Required | |
 |---|---|---|
-| `SLACK_BOT_TOKEN` | yes | `xoxb-…` bot token |
+| `SLACK_BOT_TOKEN` | yes | `xoxb-…` bot token (posts as the app) or `xoxp-…` user token (posts as you) |
 | `SLACK_CHANNEL_ID` | yes | channel to post to |
 | `SLACK_USERGROUP_ID` | yes | group pinged in the daily update |
 | `SLACK_APP_TOKEN` | no | no longer used (see below) and safe to leave in place |
-| `PORT` | no | only used outside Docker, default `3000` |
+| `PORT` | no | only used outside Docker, default `3000`; Docker always listens on 3000 inside the container |
 
 The previous version connected over Socket Mode, but it never listened for any Slack events. It only called `chat.postMessage`, so the app now uses the Web API client directly and the app-level token isn't needed.
 

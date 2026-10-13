@@ -4,8 +4,14 @@ import { WebClient, type ChatPostMessageArguments } from '@slack/web-api';
 import express from 'express';
 import { THREAD_FOLLOW_UP, buildFormattedMessage, buildPlainMessage } from '../shared/format';
 
-const { SLACK_BOT_TOKEN, SLACK_CHANNEL_ID, SLACK_USERGROUP_ID } = process.env;
-const PORT = Number(process.env.PORT) || 3000;
+// Tolerate inline comments and stray whitespace, e.g. `SLACK_USERGROUP_ID=S0123 #@my-group`.
+const env = (name: string) => process.env[name]?.replace(/\s+#.*$/, '').trim() || undefined;
+
+// Either a bot token (xoxb-, posts as the app) or a user token (xoxp-, posts as you).
+const SLACK_BOT_TOKEN = env('SLACK_BOT_TOKEN');
+const SLACK_CHANNEL_ID = env('SLACK_CHANNEL_ID');
+const SLACK_USERGROUP_ID = env('SLACK_USERGROUP_ID');
+const PORT = Number(env('PORT')) || 3000;
 
 const missing = Object.entries({ SLACK_BOT_TOKEN, SLACK_CHANNEL_ID, SLACK_USERGROUP_ID })
   .filter(([, v]) => !v)

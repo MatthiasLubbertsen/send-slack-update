@@ -1,5 +1,5 @@
 import { InfoIcon, Loader2Icon, SendIcon } from "lucide-react"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
 import { SlackPreview, type PreviewNames } from "@/components/slack-preview"
@@ -46,6 +46,15 @@ export default function App() {
   const [text, setText] = useState(readDraft)
   const [formatted, setFormatted] = useState(true)
   const [sending, setSending] = useState(false)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Grow the textarea with its content (min height comes from CSS).
+  useLayoutEffect(() => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = "auto"
+    el.style.height = `${el.scrollHeight + 2}px`
+  }, [text])
   const [config, setConfig] = useState<Config>({ usergroupId: "", usergroup: "usergroup", channel: "" })
 
   useEffect(() => {
@@ -88,18 +97,18 @@ export default function App() {
   }, [text, formatted, sending])
 
   return (
-    // Phones: exactly one screen tall, editor on top and preview below, each
-    // scrolling on its own. md+: two columns.
-    <main className="mx-auto flex h-dvh w-full max-w-5xl flex-col gap-3 p-3 md:grid md:h-auto md:min-h-svh md:grid-cols-2 md:items-start md:gap-6 md:p-8 md:py-16">
-      <Card className="min-h-0 flex-[3] [--card-spacing:--spacing(3)] md:flex-none md:[--card-spacing:--spacing(4)]">
+    // Phones: editor above preview. md+: two columns.
+    <main className="mx-auto grid min-h-svh w-full max-w-5xl items-start gap-3 p-3 md:grid-cols-2 md:gap-6 md:p-8 md:py-16">
+      <Card className="[--card-spacing:--spacing(3)] md:[--card-spacing:--spacing(4)]">
         <CardHeader>
           <CardTitle className="md:text-xl">Today&apos;s update</CardTitle>
           <CardDescription className="hidden md:block">
             One task per line. Indent with two spaces or a tab for sub-points.
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex min-h-0 flex-1 flex-col gap-3 md:gap-4">
+        <CardContent className="flex flex-col gap-3 md:gap-4">
           <Textarea
+            ref={textareaRef}
             autoFocus={isDesktop}
             spellCheck={false}
             value={text}
@@ -121,10 +130,10 @@ export default function App() {
               }
             }}
             // text-base on phones stops iOS from zooming in on focus.
-            className="min-h-0 flex-1 resize-none font-mono text-base leading-relaxed field-sizing-fixed md:min-h-64 md:flex-none md:resize-y md:text-sm md:field-sizing-content"
+            className="min-h-48 resize-none overflow-hidden font-mono text-base leading-relaxed field-sizing-fixed md:min-h-64 md:text-sm"
           />
 
-          <div className="flex shrink-0 items-start gap-3 md:rounded-lg md:border md:p-3">
+          <div className="flex items-start gap-3 md:rounded-lg md:border md:p-3">
             <Checkbox
               id="formatted"
               checked={formatted}
@@ -148,7 +157,7 @@ export default function App() {
             <code>:emoji:</code> <code>[text](url)</code> and pasted links all work.
           </p>
         </CardContent>
-        <CardFooter className="shrink-0 justify-between gap-4">
+        <CardFooter className="justify-between gap-4">
           <KbdGroup className="hidden text-muted-foreground md:inline-flex">
             <Kbd>{isMac ? "⌘" : "Ctrl"}</Kbd>
             <Kbd>Enter</Kbd>
@@ -160,7 +169,7 @@ export default function App() {
         </CardFooter>
       </Card>
 
-      <Card className="min-h-0 flex-[2] [--card-spacing:--spacing(3)] md:sticky md:top-16 md:flex-none md:[--card-spacing:--spacing(4)]">
+      <Card className="[--card-spacing:--spacing(3)] md:sticky md:top-16 md:[--card-spacing:--spacing(4)]">
         <CardHeader>
           <div className="flex items-center justify-between gap-2">
             <CardTitle>Preview</CardTitle>
@@ -173,7 +182,7 @@ export default function App() {
           )}
         </CardHeader>
         <Separator />
-        <CardContent className="min-h-0 flex-1 space-y-3 overflow-y-auto">
+        <CardContent className="space-y-3">
           <SlackPreview text={text} formatted={formatted} names={config} />
           {formatted && text.trim() !== "" && (
             <p className="text-sm text-muted-foreground md:border-t md:pt-3">
