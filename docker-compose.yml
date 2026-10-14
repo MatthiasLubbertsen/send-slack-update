@@ -5,4 +5,7 @@ services:
       - "3010:3000"
     env_file:
       - .env
+    environment:
+      # The container always listens on 3000; change the host port above instead.
+      PORT: "3000"
     restart: unless-stopped

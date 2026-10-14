@@ -1,227 +1,105 @@
-# Slack Daily Update
+# Send Slack Update
 
-Eenvoudige lokale webapp om je dagelijkse Slack update te schrijven en direct
-te versturen. Je typt een lijst met werkzaamheden, klikt op **Send to Slack**,
-en de app zet dit automatisch om naar Slack mrkdwn en post het bericht in het
-geconfigureerde kanaal — via Socket Mode, dus zonder publieke webhook.
+A small web app for writing your daily update and posting it to a Slack channel.
 
-## Tech stack
+Type one task per line, indent sub-tasks, and hit **Send to Slack**. A live preview shows what the message will look like.
 
-- Node.js + Express (serveert frontend en API)
-- @slack/bolt in Socket Mode (authenticatie + verbinding)
-- Slack Web API (`chat.postMessage`) voor het daadwerkelijk versturen
-- Vanilla HTML/CSS/JS voor de frontend, geen frameworks, geen build tools
+## What gets sent
 
-## Projectstructuur
+**Daily update format** (checkbox on, the default):
 
 ```
-project/
-│
-├── server.js
-├── package.json
-├── .env.example
-├── manifest.yaml
-├── README.md
-│
-└── public/
-    ├── index.html
-    ├── styles.css
-    └── script.js
+@your-group today:
+  • Fixed the login bug 🐛
+      ◦ Added logging
+  • Updated the dashboard 🚀
+please talk in the thread below! • join this usergroup with `/se group join S…`!
 ```
 
----
+…followed by a second message: `🧵 or don't thread`.
 
-## 1. Installatie
+**Plain text** (checkbox off): only your text, exactly as written. No ping, no "today:", no footer, no follow-up.
+
+### Formatting
+
+Everything Slack supports works in both modes:
+
+| You type | You get |
+|---|---|
+| `:rocket:` `:+1:` `:wave::skin-tone-3:` `:custom-emoji:` | emoji |
+| `https://example.com`, `www.example.com` | clickable link |
+| `[the docs](https://example.com)` or `<https://example.com\|the docs>` | link with a label |
+| `*bold*` `_italic_` `~strike~` `` `code` `` | styling |
+| `<@U123>` `<#C123>` `<!subteam^S123>` `<!here>` | mentions |
+
+#### Why emoji and links didn't work before
+
+The old version put each bullet into a Block Kit `rich_text` block as a single `text` element. Rich text `text` elements are *literal*: Slack does not turn `:emoji:` or URLs inside them into anything. Slack expects separate [`emoji`](https://docs.slack.dev/reference/block-kit/block-elements/emoji-element), [`link`](https://docs.slack.dev/reference/block-kit/block-elements/link-element), `user`, `usergroup`, `channel` and `broadcast` elements, plus a `style` object for bold/italic/strike/code ([text element](https://docs.slack.dev/reference/block-kit/block-elements/text-element)).
+
+[`shared/format.ts`](shared/format.ts) now tokenizes every line into those elements. Plain-text mode sends [mrkdwn](https://docs.slack.dev/messaging/formatting-message-text) instead, escaping `&`, `<` and `>` as the docs require and converting `[label](url)` into `<url|label>`.
+
+## Running it with Docker
+
+On the server, next to your existing `.env`:
+
+```bash
+docker compose up -d --build
+```
+
+The app runs on port **3010** (change the left side of `ports` in `docker-compose.yml` to use another one).
+
+### Environment variables
+
+Same `.env` as before, nothing to change. See [`.env.example`](.env.example).
+
+| Variable | Required | |
+|---|---|---|
+| `SLACK_BOT_TOKEN` | yes | `xoxb-…` bot token (posts as the app) or `xoxp-…` user token (posts as you) |
+| `SLACK_CHANNEL_ID` | yes | channel to post to |
+| `SLACK_USERGROUP_ID` | yes | group pinged in the daily update |
+| `SLACK_APP_TOKEN` | no | no longer used (see below) and safe to leave in place |
+| `PORT` | no | only used outside Docker, default `3000`; Docker always listens on 3000 inside the container |
+
+The previous version connected over Socket Mode, but it never listened for any Slack events. It only called `chat.postMessage`, so the app now uses the Web API client directly and the app-level token isn't needed.
+
+### Optional scopes
+
+The bot only needs `chat:write`. If you also add `usergroups:read` and `channels:read`, the UI shows `@group-handle` and `#channel-name` instead of their IDs.
+
+## Development
 
 ```bash
 npm install
+cp .env.example .env   # fill in values
+npm run dev            # API on :3000, Vite on :5173 (proxies /api)
+npm test               # formatter tests
+npm run build          # type-check, build frontend + server
+npm start              # serve the production build
 ```
 
-## 2. Environment variabelen
-
-```bash
-cp .env.example .env
-```
-
-Je moet daarna 4 waarden invullen: `SLACK_BOT_TOKEN`, `SLACK_APP_TOKEN`,
-`SLACK_CHANNEL_ID` en `SLACK_USERGROUP_ID`. Hieronder staat stap voor stap
-hoe je aan elke waarde komt.
-
----
-
-## 3. Slack App aanmaken
-
-1. Ga naar [https://api.slack.com/apps](https://api.slack.com/apps).
-2. Klik op **Create New App**.
-3. Kies **From an app manifest**.
-4. Selecteer je workspace.
-5. Plak de inhoud van `manifest.yaml` (uit dit project) in het manifest-veld.
-6. Klik op **Next** en daarna op **Create**.
-
-De app heeft nu automatisch de juiste bot-configuratie, scopes en Socket
-Mode-instellingen, omdat dit allemaal al in het manifest staat.
-
-## 4. Manifest importeren
-
-Dit gebeurt al tijdens het aanmaken van de app in stap 3. Wil je het manifest
-later aanpassen, ga dan naar **Settings → App Manifest** in het linkermenu
-van je Slack app, pas de YAML aan en klik op **Save Changes**.
-
-## 5. OAuth scopes
-
-Het manifest configureert automatisch de volgende (minimale) bot-scope:
-
-| Scope | Waarom nodig |
-|---|---|
-| `chat:write` | Om berichten te posten in het geconfigureerde kanaal via `chat.postMessage`. Dit is de enige actie die de app uitvoert. |
-
-Er zijn bewust géén `users:read` of `usergroups:read` scopes toegevoegd: de
-usergroup-mention wordt via een environment variable ingesteld, niet
-dynamisch opgezocht via de Slack API.
-
-## 6. App installeren (OAuth)
-
-1. Ga in je Slack app naar **OAuth & Permissions** in het linkermenu.
-2. Klik bovenaan op **Install to Workspace** (of **Reinstall to Workspace**
-   als je later scopes wijzigt).
-3. Bevestig de permissies op het toestemmingsscherm.
-4. Je komt terug op de **OAuth & Permissions** pagina. Bovenaan staat nu de
-   **Bot User OAuth Token**, beginnend met `xoxb-`.
-5. Kopieer deze waarde naar `SLACK_BOT_TOKEN` in je `.env`.
-
-## 7. Socket Mode inschakelen
-
-1. Ga naar **Socket Mode** in het linkermenu van je Slack app.
-2. Zet de toggle **Enable Socket Mode** aan.
-3. Slack vraagt je direct om een App-Level Token aan te maken (zie stap 8) —
-   dit hoort bij het inschakelen van Socket Mode.
-
-Dit staat overigens ook al goed gezet via `manifest.yaml`
-(`socket_mode_enabled: true`), maar controleer dit voor de zekerheid.
-
-## 8. App-Level Token aanmaken
-
-1. Ga naar **Basic Information** in het linkermenu.
-2. Scroll naar **App-Level Tokens** en klik op **Generate Token and Scopes**.
-3. Geef de token een naam, bijvoorbeeld `socket-mode-token`.
-4. Voeg de scope **`connections:write`** toe (dit is de enige scope die een
-   App-Level Token nodig heeft om Socket Mode te laten werken).
-5. Klik op **Generate**.
-6. Kopieer de token, beginnend met `xapp-`.
-7. Plak deze in `SLACK_APP_TOKEN` in je `.env`.
-
-## 9. Bot Token vinden (indien je hem kwijt bent)
-
-Ga naar **OAuth & Permissions** in het linkermenu van je Slack app. De
-**Bot User OAuth Token** (`xoxb-...`) staat daar altijd bovenaan zolang de
-app geïnstalleerd is.
-
-## 10. Channel ID vinden
-
-1. Open het gewenste kanaal in Slack (desktop of web).
-2. Klik op de kanaalnaam bovenaan om het kanaal-detailvenster te openen.
-3. Scroll helemaal naar onderen — de **Channel ID** (bijvoorbeeld
-   `C0123456789`) staat onderaan dit venster.
-4. Kopieer deze naar `SLACK_CHANNEL_ID` in je `.env`.
-
-> Let op: zorg dat je bot ook daadwerkelijk in dit kanaal aanwezig is
-> (`/invite @daily-update-bot` in het kanaal), anders krijg je een
-> `not_in_channel` fout bij het versturen.
-
-## 11. Usergroup ID vinden
-
-1. Ga in Slack naar **People & user groups** (via het zijmenu of de
-   werkbalk-zoekfunctie).
-2. Open het tabblad **User groups** en klik op de gewenste groep
-   (bijvoorbeeld `@matthias-day`).
-3. De ID (beginnend met `S`, bijvoorbeeld `S0AK8LYJ8FR`) is te vinden via de
-   Slack API-methode `usergroups.list`, of via de URL wanneer je de
-   groepsdetails opent in de browserversie van Slack.
-4. Kopieer deze naar `SLACK_USERGROUP_ID` in je `.env`.
-
----
-
-## 12. Applicatie starten
-
-```bash
-npm start
-```
-
-Je ziet in de terminal:
+### Layout
 
 ```
-⚡️ Slack Bolt app draait in Socket Mode
-🚀 Server draait op http://localhost:3000
+shared/format.ts       text → Slack blocks / mrkdwn (used by server and preview)
+server/index.ts        Express: /api/send, /api/config, serves the built frontend
+src/App.tsx            the page
+src/components/ui/     shadcn/ui components (added with the shadcn CLI)
+src/components/slack-preview.tsx
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in je browser.
+UI components come from [shadcn/ui](https://ui.shadcn.com). Add more with `npx shadcn@latest add <component>`.
 
----
+## Slack app setup (first time only)
 
-## Gebruik
-
-- Typ je werkzaamheden in de textarea. Regels zonder inspringing zijn
-  hoofdpunten, regels met minimaal twee spaties of een tab zijn subpunten:
-
-  ```
-  Fixed authentication bug
-    Added logging
-    Added tests
-  Updated dashboard
-    Faster loading
-    Fixed CSS
-  ```
-
-- Je concept wordt automatisch opgeslagen in `localStorage` tijdens het
-  typen, en hersteld wanneer je de pagina opnieuw opent.
-- Klik op **Send to Slack**, of gebruik **Ctrl+Enter**, om te versturen.
-- Na succesvol versturen worden de textarea en `localStorage` geleegd.
-- Bij een fout blijft je tekst behouden en zie je een duidelijke foutmelding.
-
-Het uiteindelijke Slack-bericht ziet er zo uit:
-
-```
-<!subteam^S0AK8LYJ8FR> today:
-
-- Fixed authentication bug
-  - Added logging
-  - Added tests
-- Updated dashboard
-  - Faster loading
-  - Fixed CSS
-
-_I'm ooo, so I won't read y'alls reactions, but I will read them once my vacation is ended! - join this usergroup using '/se group join @matthias-day' - see y'all later!_
-```
-
----
+1. https://api.slack.com/apps → **Create New App** → **From an app manifest** → paste [`manifest.yaml`](manifest.yaml).
+2. **OAuth & Permissions** → **Install to Workspace** → copy the **Bot User OAuth Token** into `SLACK_BOT_TOKEN`.
+3. In the channel, run `/invite @daily-update-bot`.
 
 ## Troubleshooting
 
-**`❌ Ontbrekende environment variable: ...`**
-Je `.env` bestand mist een verplichte waarde. Controleer of alle 4 de
-variabelen uit `.env.example` zijn ingevuld in je eigen `.env`.
-
-**`not_in_channel` fout bij versturen**
-De bot is nog niet lid van het kanaal. Ga naar het kanaal in Slack en typ
-`/invite @jouw-bot-naam`, of voeg de bot toe via de kanaal-instellingen.
-
-**`invalid_auth` of `not_authed` fout**
-De `SLACK_BOT_TOKEN` is ongeldig of verlopen. Herinstalleer de app via
-**OAuth & Permissions → Reinstall to Workspace** en kopieer de nieuwe token.
-
-**App start niet / Socket Mode verbindt niet**
-Controleer of `SLACK_APP_TOKEN` daadwerkelijk begint met `xapp-` en de scope
-`connections:write` heeft, en of **Enable Socket Mode** aanstaat onder
-**Socket Mode** in de Slack app-instellingen.
-
-**`channel_not_found` fout**
-Controleer of `SLACK_CHANNEL_ID` de juiste Channel ID is (begint met `C`),
-niet de kanaalnaam zelf.
-
-**Lijst in Slack toont geen inspringing**
-Zorg dat je in de textarea subpunten laat beginnen met minimaal twee spaties
-of een tab. Slack zelf verwacht in de uiteindelijke opmaak exact twee
-spaties vóór het `-` teken; dit wordt automatisch door de server geregeld.
-
-**Poort al in gebruik**
-Wijzig `PORT` in je `.env` naar een andere waarde, bijvoorbeeld `3001`.
+| Error | Fix |
+|---|---|
+| `not_in_channel` | Invite the bot to the channel. |
+| `channel_not_found` | `SLACK_CHANNEL_ID` must be the ID (`C…`), not the name. |
+| `invalid_auth` / `not_authed` | Bot token is wrong or revoked. Reinstall the app and copy the new token. |
+| `Missing environment variable(s)` on start | Your `.env` is missing one of the required values. |
